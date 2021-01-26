@@ -15,6 +15,10 @@ const adminSchema = mongoose.Schema({
     },
     avatar:{
         type: String
+    },
+    reset_link:{
+        data: String,
+        default:''
     }
 })
 module.exports = {Admin: mongoose.model('admin', adminSchema)}

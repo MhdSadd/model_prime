@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require('express');
 const app = express();
 const path = require('path');
+const methodOverride = require('method-override');
 const logger = require('morgan')
 const sendMail = require('./mail');
 const ejs = require (`ejs`)
@@ -17,9 +18,13 @@ const {Admin} = require('./models/admin');
 const passport = require("passport");
 //passport config
 require("./config/passport")(passport);
+const nodemailer = require("nodemailer");
+const { google } = require("googleapis");
+const OAuth2 = google.auth.OAuth2;
 
 
 app.use(logger('dev'))
+app.use(methodOverride('_method'));
 
 
 // mongoose config
@@ -61,6 +66,7 @@ app.use(session({
     })
     
 }))
+
 
 //passport middleware config
 app.use(passport.initialize());

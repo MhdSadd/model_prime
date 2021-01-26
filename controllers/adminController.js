@@ -1,5 +1,7 @@
 const mongoose =  require('mongoose');
 const bcrypt = require('bcrypt')
+const jwt = require('jsonwebtoken')
+const _ = require('lodash')
 const {Admin} = require('../models/admin')
 const {Project} = require('../models/projectCatalogue')
 const {Services} = require('../models/serviceCatalogue')
@@ -8,6 +10,8 @@ const {AboutUs} = require('../models/aboutModelPrime')
 const {AboutCEO} = require('../models/aboutCEO')
 const passport = require("passport");
 const cloudinary = require('../config/cloudinary')
+const smtpTransport = require('../config/mailer')
+const mail = require('../config/mail')
 
 
 
@@ -96,6 +100,19 @@ module.exports = {
           })
           newProject.save()
           res.redirect('/admin/all-projects')
+          const html = `project ${projectName} <strong> created successfully </strong>`
+          const mailOptions = {
+            from: mail.GMAIL_NAME,
+            to: "mhdsadd3@gmail.com",
+            subject: "project creation",
+            generateTextFromHTML: true,
+            html: html
+          };
+          smtpTransport.sendMail(mailOptions, (error, response) => {
+            error ? console.log(error) : console.log(response);
+            smtpTransport.close();
+          });
+
         })
       }
     },
@@ -259,5 +276,88 @@ module.exports = {
       req.flash({message:"You are logged out"});
       res.redirect("/");
     },
+
+    forget_passwordGET:(req, res)=>{
+      res.render('forgot-password',{layout:"form"});
+    },
       
+    forgot_password: (req, res)=>{
+      const {email} = req.body
+      Admin.findOne({email:email}, (err, user)=>{
+        if (err || !user){
+          console.log(`No user with this mail`)
+          req.flash({error_message: 'No user with this mail'})
+        }
+        else{
+          const token = jwt.sign({id:user._id},process.env.RESET_SECRET, {expiresIn:'20m'})
+          console.log('token------>', token)
+          const html = `<h2>Please click on the link to reset your password</h2>
+            <p>${process.env.CLIENT_URL}/admin/reset-password/${token}</p>`
+          const mailOptions = {
+            from: mail.GMAIL_NAME,
+            to: email,
+            subject: "Password Reset",
+            generateTextFromHTML: true,
+            html: html
+          }
+          return user.updateOne({reset_link: token}, (err, success)=>{
+            if (err){
+              console.log(`reset error`)
+              req.flash({error_message: 'reset error'})
+            }
+            else{
+              smtpTransport.sendMail(mailOptions, (error, response) => {
+                error ? console.log(error) : console.log(response);
+                res.redirect(`/admin/reset-password/${token}`)
+                smtpTransport.close();
+              });
+            }
+          })
+        }
+      })
+    },
+
+    reset_password:(req, res)=>{
+      let reset_link = req.params.token
+      res.render('reset-password',{layout:"form", reset_link});
+    },
+
+    reset_passwordPOST: async(req, res, next)=>{
+      let {reset_link, new_password} = req.body
+      if(reset_link){
+        console.log('reset==>',req.body)
+        jwt.verify(reset_link, process.env.RESET_SECRET , (err, decoded)=>{
+          if (err) throw err
+          Admin.findOne({reset_link}, (err, user)=>{
+            if (err || !user){
+              console.log('No user with this token')
+            }
+            else{
+              bcrypt.genSalt(10, (err, salt)=>{
+                bcrypt.hash(new_password, salt, (err, hash)=>{
+                  if (err) throw err
+                  new_password = hash
+                  
+                  const obj = {
+                    password : new_password,
+                    reset_link: ''
+                  }
+                  user = _.extend(user, obj)
+                  user.save((err, saved)=>{
+                    if (err) throw err 
+                    else{
+                      console.log('password reset successfully')
+                      res.redirect('/admin/login')
+                    }
+                  })
+                })
+              })
+            }
+          })
+        })
+        }
+      else{
+        console.log(`Authorization Error`)
+      }
+    }
 }
