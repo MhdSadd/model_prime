@@ -132,4 +132,4 @@ app.use((req, res, next) => {
 
 // --LISTENING PORT ---------------------
 const port = process.env.PORT || 7000;
-app.listen(port, () => console.log(`port is listening at port ${port}`));
+app.listen(port, () => console.log(`port is listening at port http://localhost:${port}`));

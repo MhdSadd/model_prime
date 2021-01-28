@@ -43,7 +43,6 @@ module.exports = {
       })
       aboutsUs.save()
       res.redirect('/admin/index')
-      console.log('saved')
     }
     },
 
